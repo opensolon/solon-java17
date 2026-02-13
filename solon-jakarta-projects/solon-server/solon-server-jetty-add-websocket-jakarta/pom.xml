@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.noear</groupId>
         <artifactId>solon-jakarta-parent</artifactId>
-        <version>3.6.7</version>
+        <version>3.6.8</version>
         <relativePath>../../../solon-jakarta-parent/pom.xml</relativePath>
     </parent>
 

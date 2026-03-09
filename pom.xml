@@ -13,7 +13,6 @@
         <module>__release</module>
         <module>__test</module>
     </modules>
-
     <build>
         <plugins>
             <plugin>

@@ -20,12 +20,12 @@
     <properties>
         <java.version>11</java.version>
 
-        <jakarta.logback.version>1.5.27</jakarta.logback.version>
+        <jakarta.logback.version>1.5.32</jakarta.logback.version>
         <jakarta.servlet5.version>5.0.0</jakarta.servlet5.version>
         <jakarta.servlet6.version>6.1.0</jakarta.servlet6.version>
         <jakarta.websocket2.version>2.2.0</jakarta.websocket2.version>
 
-        <jackson3.version>3.0.4</jackson3.version>
+        <jackson3.version>3.1.0</jackson3.version>
         <okhttp5.version>5.3.2</okhttp5.version>
 
         <cxf.version>4.1.2</cxf.version>

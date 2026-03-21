@@ -1,4 +1,9 @@
 
+### v3.9.6
+
+* jakarta.logback 升为 1.5.32
+* jackson3 升为 3.1.0
+
 ### v3.9.1
 
 * jakarta.logback 升为 1.5.27

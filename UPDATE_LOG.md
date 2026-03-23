@@ -1,4 +1,8 @@
 
+### v3.8.6
+
+* jakarta.logback 升为 1.5.32
+
 ### v3.8.1
 
 * 新增 `solon-net-httputils-java11` 插件 //还有问题

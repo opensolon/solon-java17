@@ -3,6 +3,7 @@
 ### v3.11.0
 
 * undertow-jakarta 升为 2.3.24.Final
+* xxl-job-core 升为 3.4.0
 
 ### v3.10.0
 

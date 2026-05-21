@@ -7,12 +7,12 @@
     <parent>
         <groupId>org.noear</groupId>
         <artifactId>solon-parent</artifactId>
-        <version>3.10.6</version>
+        <version>3.11.0-SNAPSHOT</version>
         <relativePath/>
     </parent>
 
     <artifactId>solon-java17-parent</artifactId>
-    <version>3.10.6</version>
+    <version>3.11.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -32,9 +32,7 @@
 
         <jetty.jakarta.version>12.1.4</jetty.jakarta.version>
 
-        <undertow.jakarta.version>2.3.20.Final</undertow.jakarta.version>
-        <undertow.jastow.jakarta.version>2.2.8.Final</undertow.jastow.jakarta.version>
-        <undertow.jboss-metadata.jakarta.version>16.1.0.Final</undertow.jboss-metadata.jakarta.version>
+        <undertow.jakarta.version>2.3.24.Final</undertow.jakarta.version>
 
         <tomcat.jakarta.version>11.0.14</tomcat.jakarta.version>
     </properties>

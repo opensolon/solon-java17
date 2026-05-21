@@ -1,5 +1,9 @@
 
 
+### v3.11.0
+
+* undertow-jakarta 升为 2.3.24.Final
+
 ### v3.10.0
 
 * jakarta.logback 升为 1.5.32

@@ -6,6 +6,7 @@
 * undertow-jakarta 升为 2.3.24.Final
 * jetty.jakarta 升为 12.1.9
 * xxl-job-core 升为 3.4.0
+* jackson3 升为 3.1.3
 
 ### v3.10.0
 

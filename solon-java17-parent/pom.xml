@@ -30,7 +30,7 @@
 
         <cxf.version>4.1.2</cxf.version>
 
-        <jetty.jakarta.version>12.1.4</jetty.jakarta.version>
+        <jetty.jakarta.version>12.1.9</jetty.jakarta.version>
 
         <undertow.jakarta.version>2.3.24.Final</undertow.jakarta.version>
 

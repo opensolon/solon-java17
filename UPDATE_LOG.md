@@ -4,6 +4,7 @@
 
 * 新增 solon-cache-caffeine3
 * undertow-jakarta 升为 2.3.24.Final
+* jetty.jakarta 升为 12.1.9
 * xxl-job-core 升为 3.4.0
 
 ### v3.10.0

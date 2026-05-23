@@ -7,6 +7,7 @@
 * jetty.jakarta 升为 12.1.9
 * xxl-job-core 升为 3.4.0
 * jackson3 升为 3.1.3
+* tomcat 升为 11.0.22
 
 ### v3.10.0
 

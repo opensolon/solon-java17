@@ -20,6 +20,7 @@
         <module>../../solon-java17-parent</module>
 
         <module>../../solon-java17-projects/solon-data/hibernate-jakarta-solon-plugin</module>
+        <module>../../solon-java17-projects/solon-data/solon-cache-caffeine3</module>
 
         <module>../../solon-java17-projects/solon-logging/solon-logging-logback-jakarta</module>
 

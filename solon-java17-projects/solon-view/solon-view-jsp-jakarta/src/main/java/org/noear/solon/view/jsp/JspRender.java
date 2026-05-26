@@ -25,6 +25,11 @@ import org.noear.solon.view.ViewConfig;
 
 public class JspRender implements Render {
     @Override
+    public String[] mappings() {
+        return new String[]{".jsp", this.getClass().getSimpleName(), this.getClass().getName()};
+    }
+
+    @Override
     public void render(Object obj, Context ctx) throws Throwable {
         if(obj == null){
             return;

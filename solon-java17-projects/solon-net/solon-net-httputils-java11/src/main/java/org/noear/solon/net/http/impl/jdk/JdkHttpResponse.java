@@ -27,62 +27,67 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Type;
-import java.net.MalformedURLException;
+import java.net.HttpURLConnection;
 import java.nio.charset.Charset;
-import java.util.*;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
 
 /**
- * Http 响应 JDK HttpClient 实现 (基于 Java 11+ java.net.http.HttpClient)
+ * Http 响应 JDK HttpURLConnection 实现
  *
  * @author noear
- * @since 3.8.1
+ * @since 3.0
  */
 public class JdkHttpResponse implements HttpResponse {
     private final JdkHttpUtils utils;
-    private final java.net.http.HttpResponse<byte[]> response;
+    private final HttpURLConnection http;
     private final int statusCode;
     private final String statusMessage;
     private final MultiMap<String> headers;
     private MultiMap<String> cookies;
     private final InputStream body;
 
-    public JdkHttpResponse(JdkHttpUtils utils, java.net.http.HttpResponse<byte[]> response) throws IOException {
+    public JdkHttpResponse(JdkHttpUtils utils, int statusCode, HttpURLConnection http) throws IOException {
         this.utils = utils;
-        this.response = response;
+        this.http = http;
 
-        this.statusCode = response.statusCode();
-        this.statusMessage = null;
+        this.statusCode = statusCode;
+        this.statusMessage = http.getResponseMessage();
         this.headers = new MultiMap<>();
 
-        // 处理响应头
-        for (Map.Entry<String, java.util.List<String>> kv : response.headers().map().entrySet()) {
-            if (kv.getKey() != null && kv.getValue() != null) {
+        for (Map.Entry<String, List<String>> kv : http.getHeaderFields().entrySet()) {
+            if (kv.getKey() != null) {
                 headers.holder(kv.getKey()).setValues(kv.getValue());
             }
         }
 
-        byte[] responseBody = response.body();
-        if (responseBody == null || responseBody.length == 0) {
-            // 当响应体为空时，给一个空的输入流
-            body = new ByteArrayInputStream(new byte[0]);
-        } else {
-            // 检查 Content-Encoding
-            String encoding = header("Content-Encoding");
+        InputStream inputStream = statusCode < 400 ? http.getInputStream() : http.getErrorStream();
 
-            InputStream inputStream = new ByteArrayInputStream(responseBody);
+        if (null == inputStream) {
+            //当流为 null 时（给个空的）
+            body = new ByteArrayInputStream("".getBytes());
+        } else {
+            // 获取响应头是否有 Content-Encoding
+            String encoding = http.getHeaderField("Content-Encoding");
 
             if (Utils.isNotEmpty(encoding)) {
                 if ("gzip".equalsIgnoreCase(encoding)) {
-                    inputStream = new GZIPInputStream(inputStream);
+                    if (inputStream instanceof GZIPInputStream == false) {
+                        inputStream = new GZIPInputStream(inputStream);
+                    }
                 } else if ("deflate".equalsIgnoreCase(encoding)) {
-                    inputStream = new InflaterInputStream(inputStream, new Inflater(true));
+                    if (inputStream instanceof InflaterInputStream == false) {
+                        inputStream = new InflaterInputStream(inputStream, new Inflater(true));
+                    }
                 }
             }
 
-            body = inputStream;
+            body = new JdkInputStreamWrapper(http, inputStream);
         }
     }
 
@@ -141,21 +146,14 @@ public class JdkHttpResponse implements HttpResponse {
 
     @Override
     public Long contentLength() {
-        String lengthHeader = header("Content-Length");
-        if (lengthHeader != null) {
-            try {
-                return Long.parseLong(lengthHeader);
-            } catch (NumberFormatException e) {
-                return null;
-            }
-        }
-        return null;
+        return http.getContentLengthLong();
     }
 
     @Override
     public String contentType() {
-        return header("Content-Type");
+        return http.getContentType();
     }
+
 
     private Charset _contentCharset;
     @Override
@@ -215,15 +213,14 @@ public class JdkHttpResponse implements HttpResponse {
     @Override
     public String bodyAsString() throws IOException {
         try {
-            String encoding = response.headers().firstValue("Content-Encoding").orElse(null);
-            if (Utils.isEmpty(encoding)) {
+            if (Utils.isEmpty(http.getContentEncoding())) {
                 if (utils.charset() == null) {
                     return IoUtil.transferToString(body(), Solon.encoding());
                 } else {
                     return IoUtil.transferToString(body(), utils.charset().name());
                 }
             } else {
-                return IoUtil.transferToString(body(), encoding);
+                return IoUtil.transferToString(body(), http.getContentEncoding());
             }
         } finally {
             body().close();
@@ -243,11 +240,7 @@ public class JdkHttpResponse implements HttpResponse {
 
     @Override
     public HttpResponseException createError() {
-        try {
-            return new HttpResponseException(this, response.request().method(), response.request().uri().toURL());
-        } catch (MalformedURLException e) {
-            throw new RuntimeException(e);
-        }
+        return new HttpResponseException(this, http.getRequestMethod(), http.getURL());
     }
 
     private Map<String, List<String>> headerMap;

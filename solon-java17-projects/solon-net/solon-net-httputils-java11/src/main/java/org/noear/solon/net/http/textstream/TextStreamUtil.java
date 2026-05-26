@@ -18,11 +18,9 @@ package org.noear.solon.net.http.textstream;
 import org.noear.solon.Solon;
 import org.noear.solon.core.util.RunUtil;
 import org.noear.solon.net.http.HttpResponse;
-import org.noear.solon.rx.SimpleSubscription;
-import org.reactivestreams.Publisher;
-import org.reactivestreams.Subscriber;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
@@ -30,255 +28,137 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 文本流解析工具
+ * 文本流解析工具 (Reactor 驱动版)
  *
  * @author noear
  * @since 3.1
+ * @since 3.9.1
  */
 public class TextStreamUtil {
     /**
-     * 解析文件行流
-     *
-     * @param inputStream 输入流
-     * @param subscriber  订阅者
-     * @deprecated 3.1 {@link #parseLineStream(InputStream, Charset, Subscriber)}
+     * 将输入流解析为逐行文本流 Flux
      */
-    @Deprecated
-    public static void parseTextStream(InputStream inputStream, Subscriber<? super String> subscriber) throws IOException {
-        parseLineStream(inputStream, null, subscriber);
+    public static Flux<String> parseLineStream(InputStream inputStream) {
+        return parseLineStream(inputStream, null);
     }
 
     /**
-     * 解析文件行流
-     *
-     * @param inputStream 输入流
-     * @return 发布者
+     * 将 HTTP 响应解析为逐行文本流 Flux
      */
-    public static Publisher<String> parseLineStream(InputStream inputStream) {
-        return subscriber -> {
+    public static Flux<String> parseLineStream(HttpResponse response) {
+        return parseLineStream(response.body(), response.contentCharset());
+    }
+
+    private static Flux<String> parseLineStream(InputStream inputStream, Charset charset) {
+        Charset finalCharset = (charset == null) ? Charset.forName(Solon.encoding()) : charset;
+
+        return Flux.create(sink -> {
+            CloseTrackableBufferedReader reader = new CloseTrackableBufferedReader(new InputStreamReader(inputStream, finalCharset), 1024);
+
+            // 取消时立即关闭 reader，使阻塞中的 readLine() 抛出 IOException 退出
+            sink.onDispose(() -> RunUtil.runAndTry(reader::close));
+
             try {
-                TextStreamUtil.parseLineStream(inputStream, null, subscriber);
-            } catch (Exception e) {
-                subscriber.onError(e);
-            }
-        };
-    }
-
-    /**
-     * 解析文件行流
-     *
-     * @param response 响应
-     * @return 发布者
-     */
-    public static Publisher<String> parseLineStream(HttpResponse response) {
-        return subscriber -> {
-            try {
-                TextStreamUtil.parseLineStream(response.body(), response.contentCharset(), subscriber);
-            } catch (Exception e) {
-                subscriber.onError(e);
-            }
-        };
-    }
-
-    /**
-     * 解析文件行流
-     *
-     * @param response 响应
-     * @return 发布者
-     */
-    public static void parseLineStream(HttpResponse response, Subscriber<? super String> subscriber) {
-        TextStreamUtil.parseLineStream(response.body(), response.contentCharset(), subscriber);
-    }
-
-    /**
-     * 解析文件行流
-     *
-     * @param inputStream 输入流
-     * @param subscriber  订阅者
-     */
-    public static void parseLineStream(InputStream inputStream, Charset charset, Subscriber<? super String> subscriber) {
-        if (charset == null) {
-            charset = Charset.forName(Solon.encoding());
-        }
-
-        CloseTrackableBufferedReader reader = new CloseTrackableBufferedReader(new InputStreamReader(inputStream, charset), 1024);
-        subscriber.onSubscribe(new SimpleSubscription().onRequest((subscription, l) -> {
-            onLineStreamRequestDo(reader, subscriber, subscription, l);
-        }));
-    }
-
-    private static void onLineStreamRequestDo(CloseTrackableBufferedReader reader, Subscriber<? super String> subscriber, SimpleSubscription subscription, long l) {
-        try {
-            while (l > 0) {
-                if (subscription.isCancelled()) {
-                    RunUtil.runAndTry(reader::close);
-                    return;
+                String line;
+                while (!sink.isCancelled() && !reader.isClosed() && (line = reader.readLine()) != null) {
+                    sink.next(line);
                 }
-
-                if (reader.isClosed()) {
-                    //并发信号时；有些线程关闭了，但有些线程还在读（这里要挡一下）
-                    subscriber.onComplete();
-                    return;
-                }
-
-                String textLine = reader.readLine();
-
-                if (textLine == null) {
-                    //完成需求
-                    RunUtil.runAndTry(reader::close);
-                    subscriber.onComplete(); //可能会再次触发信号（所以，要先关）
-                    return;
-                } else {
-                    subscriber.onNext(textLine);
-                    l--; //提交后再减
+                sink.complete();
+            } catch (Exception e) {
+                // 如果已取消（超时等），不向下游传播错误
+                if (!sink.isCancelled()) {
+                    sink.error(e);
                 }
             }
-        } catch (Throwable err) {
-            RunUtil.runAndTry(reader::close);
-            subscriber.onError(err);
-        }
+        }, FluxSink.OverflowStrategy.BUFFER);
+    }
+
+
+
+    // --- SSE 相关 ---
+
+
+    /**
+     * 将输入流解析为 SSE 事件流 Flux
+     */
+    public static Flux<ServerSentEvent> parseSseStream(InputStream inputStream) {
+        return parseSseStream(inputStream, null);
     }
 
     /**
-     * 解析服务推送事件流
-     *
-     * @param inputStream 输入流
-     * @param subscriber  订阅者
-     * @deprecated 3.1 {@link #parseSseStream(InputStream, Charset, Subscriber)}
+     * 将 HTTP 响应解析为 SSE 事件流 Flux
      */
-    @Deprecated
-    public static void parseEventStream(InputStream inputStream, Subscriber<? super ServerSentEvent> subscriber) throws IOException {
-        parseSseStream(inputStream, null, subscriber);
+    public static Flux<ServerSentEvent> parseSseStream(HttpResponse response) {
+        return parseSseStream(response.body(), response.contentCharset());
     }
 
-    /**
-     * 解析服务推送事件流
-     *
-     * @param inputStream 输入流
-     * @return 发布者
-     */
-    public static Publisher<ServerSentEvent> parseSseStream(InputStream inputStream) {
-        return subscriber -> {
-            try {
-                TextStreamUtil.parseSseStream(inputStream, null, subscriber);
-            } catch (Exception e) {
-                subscriber.onError(e);
-            }
-        };
-    }
+    private static Flux<ServerSentEvent> parseSseStream(InputStream inputStream, Charset charset) {
+        Charset finalCharset = (charset == null) ? Charset.forName(Solon.encoding()) : charset;
 
-    /**
-     * 解析服务推送事件流
-     *
-     * @param response 响应
-     * @return 发布者
-     */
-    public static Publisher<ServerSentEvent> parseSseStream(HttpResponse response) {
-        return subscriber -> {
-            try {
-                TextStreamUtil.parseSseStream(response.body(), response.contentCharset(), subscriber);
-            } catch (Exception e) {
-                subscriber.onError(e);
-            }
-        };
-    }
+        return Flux.create(sink -> {
+            CloseTrackableBufferedReader reader = new CloseTrackableBufferedReader(new InputStreamReader(inputStream, finalCharset), 1024);
 
-    /**
-     * 解析服务推送事件流
-     *
-     * @param response 响应
-     * @return 发布者
-     */
-    public static void parseSseStream(HttpResponse response, Subscriber<? super ServerSentEvent> subscriber) {
-        TextStreamUtil.parseSseStream(response.body(), response.contentCharset(), subscriber);
-    }
+            // 取消时立即关闭 reader，使阻塞中的 readLine() 抛出 IOException 退出
+            sink.onDispose(() -> RunUtil.runAndTry(reader::close));
 
-    /**
-     * 解析服务推送事件流
-     *
-     * @param inputStream 输入流
-     * @param subscriber  订阅者
-     */
-    public static void parseSseStream(InputStream inputStream, Charset charset, Subscriber<? super ServerSentEvent> subscriber) {
-        if (charset == null) {
-            charset = Charset.forName(Solon.encoding());
-        }
-
-        CloseTrackableBufferedReader reader = new CloseTrackableBufferedReader(new InputStreamReader(inputStream, charset), 1024);
-        subscriber.onSubscribe(new SimpleSubscription().onRequest((subscription, l) -> {
-            onSseStreamRequestDo(reader, subscriber, subscription, l);
-        }));
-    }
-
-    private static void onSseStreamRequestDo(CloseTrackableBufferedReader reader, Subscriber<? super ServerSentEvent> subscriber, SimpleSubscription subscription, long l) {
-        if (reader.isClosed()) {
-            //并发信号时；有些线程关闭了，仍可能会探测进来
-            return;
-        }
-
-        try {
+            // SSE 上下文
             Map<String, String> meta = new HashMap<>();
             StringBuilder data = new StringBuilder();
 
-            while (l > 0) {
-                if (subscription.isCancelled()) {
-                    RunUtil.runAndTry(reader::close);
-                    return;
-                }
-
-                if (reader.isClosed()) {
-                    //并发信号时；有些线程关闭了，但有些线程还在读（这里要挡一下）
-                    subscriber.onComplete();
-                    return;
-                }
-
-                String textLine = reader.readLine();
-
-                if (textLine == null) {
-                    //完成需求
-                    RunUtil.runAndTry(reader::close);
-                    subscriber.onComplete(); //可能会再次触发信号（所以，要先关）
-                    return;
-                } else {
-                    if (textLine.isEmpty()) {
-                        if (data.length() > 0) {
+            try {
+                String line;
+                while (!sink.isCancelled() && !reader.isClosed() && (line = reader.readLine()) != null) {
+                    if (line.isEmpty()) {
+                        // 1. 遇到空行：只要 meta 或 data 有内容，就分派事件
+                        if (data.length() > 0 || !meta.isEmpty()) {
                             String dataStr = data.toString();
-                            boolean isDone = (dataStr.length() == 6 && dataStr.equals("[DONE]"));
+                            sink.next(new ServerSentEvent(new HashMap<>(meta), dataStr));
 
-                            if (isDone) {
-                                //可能会再次触发信号（所以，要先关）
-                                RunUtil.runAndTry(reader::close);
-                            }
-
-                            subscriber.onNext(new ServerSentEvent(meta, dataStr)); //可能会触发再次进来（`subscription.request(1L)`）
-                            l--; //提交后再减
                             meta.clear();
                             data.setLength(0);
 
-                            if (isDone) {
-                                subscriber.onComplete();
+                            if ("[DONE]".equals(dataStr)) {
+                                sink.complete();
                                 return;
                             }
                         }
-                    } else if (textLine.startsWith("data:")) {
-                        String content = textLine.substring("data:".length());
-                        if (data.length() > 0) {
-                            data.append("\n");
+                    } else if (line.startsWith(":")) {
+                        // 2. 忽略注释行
+                        continue;
+                    } else {
+                        // 3. 通用解析逻辑：拆分 name 和 value
+                        int flagIdx = line.indexOf(':');
+                        String name, value;
+                        if (flagIdx > -1) {
+                            name = line.substring(0, flagIdx);
+                            int valIdx = flagIdx + 1;
+                            // 规范：如果冒号后紧跟一个空格，则去掉该空格
+                            if (line.length() > valIdx && line.charAt(valIdx) == ' ') {
+                                valIdx++;
+                            }
+                            value = line.substring(valIdx);
+                        } else {
+                            name = line;
+                            value = "";
                         }
 
-                        data.append(content.trim());
-                    } else {
-                        int flagIdx = textLine.indexOf(':');
-                        if (flagIdx > 0) {
-                            meta.put(textLine.substring(0, flagIdx).trim(),
-                                    textLine.substring(flagIdx + 1).trim());
+                        // 4. 根据字段名分发
+                        if ("data".equals(name)) {
+                            if (data.length() > 0) data.append("\n");
+                            data.append(value);
+                        } else {
+                            // event, id, retry 等都在这里
+                            meta.put(name, value);
                         }
                     }
                 }
+                sink.complete();
+            } catch (Exception e) {
+                // 如果已取消（超时等），不向下游传播错误
+                if (!sink.isCancelled()) {
+                    sink.error(e);
+                }
             }
-        } catch (Throwable err) {
-            RunUtil.runAndTry(reader::close);
-            subscriber.onError(err);
-        }
+        }, FluxSink.OverflowStrategy.BUFFER);
     }
 }

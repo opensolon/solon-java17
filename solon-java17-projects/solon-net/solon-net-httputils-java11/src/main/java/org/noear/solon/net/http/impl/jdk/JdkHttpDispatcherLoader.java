@@ -20,13 +20,16 @@ import org.noear.solon.Utils;
 import org.noear.solon.core.util.NamedThreadFactory;
 import org.noear.solon.core.util.ThreadsUtil;
 
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Http 调度加载器（用于懒加载）
  *
  * @author noear
- * @since 3.8.1
+ * @since 3.3
  */
 public class JdkHttpDispatcherLoader {
     private ExecutorService dispatcher;

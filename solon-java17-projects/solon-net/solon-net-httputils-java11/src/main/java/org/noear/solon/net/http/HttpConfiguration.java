@@ -17,7 +17,9 @@ package org.noear.solon.net.http;
 
 import org.noear.solon.net.http.impl.HttpUtilsFactoryDefault;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * Http 配置类

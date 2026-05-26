@@ -19,10 +19,10 @@ import org.noear.solon.net.http.HttpUtils;
 import org.noear.solon.net.http.HttpUtilsFactory;
 
 /**
- * Http 工具工厂 JDK HttpClient 实现 (基于 Java 11+ java.net.http.HttpClient)
+ * Http 工具工厂 JDK HttpURLConnection 实现
  *
  * @author noear
- * @since 3.8.1
+ * @since 3.0
  */
 public class JdkHttpUtilsFactory implements HttpUtilsFactory {
     private static final JdkHttpUtilsFactory instance = new JdkHttpUtilsFactory();

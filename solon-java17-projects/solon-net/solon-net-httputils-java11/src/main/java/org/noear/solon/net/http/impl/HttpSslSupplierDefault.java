@@ -20,7 +20,10 @@ import org.noear.solon.net.http.ssl.SslAnyHostnameVerifier;
 import org.noear.solon.net.http.ssl.SslAnyTrustManager;
 import org.noear.solon.net.http.ssl.SslContextBuilder;
 
-import javax.net.ssl.*;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.X509TrustManager;
 
 /**
  * SSL 客户端

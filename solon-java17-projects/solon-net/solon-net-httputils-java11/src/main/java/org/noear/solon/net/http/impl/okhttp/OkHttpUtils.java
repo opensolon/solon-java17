@@ -23,8 +23,13 @@ import okio.Source;
 import org.noear.solon.Utils;
 import org.noear.solon.core.util.ClassUtil;
 import org.noear.solon.core.util.KeyValues;
-import org.noear.solon.net.http.*;
-import org.noear.solon.net.http.impl.*;
+import org.noear.solon.net.http.HttpException;
+import org.noear.solon.net.http.HttpResponse;
+import org.noear.solon.net.http.HttpUtils;
+import org.noear.solon.net.http.impl.AbstractHttpUtils;
+import org.noear.solon.net.http.impl.HttpSslSupplierDefault;
+import org.noear.solon.net.http.impl.HttpStream;
+import org.noear.solon.net.http.impl.HttpUploadFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,7 +64,8 @@ public class OkHttpUtils extends AbstractHttpUtils implements HttpUtils {
     @Override
     public HttpUtils body(String txt, String contentType) {
         if (txt != null) {
-            _bodyRaw = RequestBody.create(txt, contentType == null ? null : MediaType.parse(contentType));
+//            _bodyRaw = RequestBody.create(txt, contentType == null ? null : MediaType.parse(contentType));
+            _bodyRaw = RequestBody.create(txt.getBytes(_charset), contentType == null ? null : MediaType.parse(contentType));
         }
 
         return this;

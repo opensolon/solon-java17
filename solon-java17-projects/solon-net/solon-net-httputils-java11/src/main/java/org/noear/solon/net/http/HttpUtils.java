@@ -23,9 +23,9 @@ import org.noear.solon.core.util.KeyValues;
 import org.noear.solon.core.util.MimeType;
 import org.noear.solon.lang.Preview;
 import org.noear.solon.net.http.textstream.ServerSentEvent;
-import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import reactor.core.publisher.Flux;
 
 import java.io.File;
 import java.io.IOException;
@@ -71,6 +71,13 @@ public interface HttpUtils {
     static HttpUtils http(String url) {
         return HttpConfiguration.getFactory().http(url);
     }
+
+    /**
+     * 发起地址
+     *
+     * @since 3.9.5
+     */
+    String url();
 
     /**
      * 配置序列化器
@@ -378,33 +385,13 @@ public interface HttpUtils {
     /**
      * 执行请求并返回文本行流
      */
-    Publisher<String> execAsLineStream(String method);
-
-    /**
-     * 执行请求并返回文本流
-     *
-     * @deprecated 3.1 {@link #execAsLineStream(String)}
-     */
-    @Deprecated
-    default Publisher<String> execAsTextStream(String method) {
-        return execAsLineStream(method);
-    }
+    Flux<String> execAsLineStream(String method);
 
 
     /**
      * 执行请求并返回服务端推送事件流
      */
-    Publisher<ServerSentEvent> execAsSseStream(String method);
-
-    /**
-     * 执行请求并返回服务端推送事件流
-     *
-     * @deprecated 3.1 {@link #execAsSseStream(String)}
-     */
-    @Deprecated
-    default Publisher<ServerSentEvent> execAsEventStream(String method) {
-        return execAsSseStream(method);
-    }
+    Flux<ServerSentEvent> execAsSseStream(String method);
 
     /**
      * 执行请求并返回响应
@@ -422,87 +409,6 @@ public interface HttpUtils {
     default HttpUtils fill(Consumer<HttpUtils> consumer) {
         consumer.accept(this);
         return this;
-    }
-
-
-    /////////////
-
-    /**
-     * 主体配置
-     *
-     * @deprecated 3.0 {@link #body(String, String)}
-     */
-    @Deprecated
-    default HttpUtils bodyTxt(String txt, String contentType) {
-        log.warn("'HttpUtils.bodyTxt(.,.)' will be removed, please use 'HttpUtils.body(.,.)'!");
-        return body(txt, contentType);
-    }
-
-    /**
-     * 主体配置
-     *
-     * @deprecated 3.0 {@link #bodyOfTxt(String)}
-     */
-    @Deprecated
-    default HttpUtils bodyTxt(String txt) {
-        log.warn("'HttpUtils.bodyTxt(.)' will be removed, please use 'HttpUtils.bodyOfTxt(.)'!");
-        return bodyOfTxt(txt);
-    }
-
-    /**
-     * 主体配置
-     *
-     * @deprecated 3.0 {@link #bodyOfJson(String)}
-     */
-    @Deprecated
-    default HttpUtils bodyJson(String txt) {
-        log.warn("'HttpUtils.bodyJson(.)' will be removed, please use 'HttpUtils.bodyOfJson(.)'!");
-        return bodyOfJson(txt);
-    }
-
-
-    /**
-     * 主体配置
-     *
-     * @deprecated 3.0 {@link #body(byte[], String)}
-     */
-    @Deprecated
-    default HttpUtils bodyRaw(byte[] bytes, String contentType) {
-        log.warn("'HttpUtils.bodyRaw(.,.)' will be removed, please use 'HttpUtils.body(.,.)'!");
-        return body(bytes, contentType);
-    }
-
-    /**
-     * 主体配置
-     *
-     * @deprecated 3.0 {@link #body(byte[])}
-     */
-    @Deprecated
-    default HttpUtils bodyRaw(byte[] bytes) {
-        log.warn("'HttpUtils.bodyRaw(.)' will be removed, please use 'HttpUtils.body(.)'!");
-        return body(bytes);
-    }
-
-    /**
-     * 主体配置
-     *
-     * @deprecated 3.0 {@link #body(InputStream)}
-     */
-    @Deprecated
-    default HttpUtils bodyRaw(InputStream raw) {
-        log.warn("'HttpUtils.bodyRaw(.)' will be removed, please use 'HttpUtils.body(.)'!");
-        return body(raw);
-    }
-
-    /**
-     * 主体配置
-     *
-     * @deprecated 3.0 {@link #body(byte[], String)}
-     */
-    @Deprecated
-    default HttpUtils bodyRaw(InputStream raw, String contentType) {
-        log.warn("'HttpUtils.bodyRaw(.,.)' will be removed, please use 'HttpUtils.body(.,.)'!");
-        return body(raw, contentType);
     }
 
 

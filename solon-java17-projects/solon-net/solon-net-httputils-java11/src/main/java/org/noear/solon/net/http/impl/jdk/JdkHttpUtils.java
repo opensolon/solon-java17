@@ -16,7 +16,10 @@
 package org.noear.solon.net.http.impl.jdk;
 
 import org.noear.solon.Utils;
-import org.noear.solon.core.util.*;
+import org.noear.solon.core.util.ClassUtil;
+import org.noear.solon.core.util.IoUtil;
+import org.noear.solon.core.util.KeyValues;
+import org.noear.solon.core.util.MultiMap;
 import org.noear.solon.net.http.HttpException;
 import org.noear.solon.net.http.HttpResponse;
 import org.noear.solon.net.http.HttpUtils;
@@ -25,26 +28,25 @@ import org.noear.solon.net.http.impl.HttpSslSupplierDefault;
 import org.noear.solon.net.http.impl.HttpStream;
 import org.noear.solon.net.http.impl.HttpUploadFile;
 
+import javax.net.ssl.HttpsURLConnection;
 import java.io.*;
-import java.net.*;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLDecoder;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-// Java 11+ HTTP Client imports
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse.BodyHandlers;
-import java.net.http.HttpRequest.BodyPublisher;
-import java.net.http.HttpRequest.BodyPublishers;
-import javax.net.ssl.SSLContext;
-
 /**
- * Http 工具 JDK HttpClient 实现 (基于 Java 11+ java.net.http.HttpClient)
+ * Http 工具 JDK HttpURLConnection 实现
  *
  * @author noear
- * @since 3.8.1
+ * @since 3.0
  */
 public class JdkHttpUtils extends AbstractHttpUtils implements HttpUtils {
     static final Set<String> METHODS_NOBODY;
@@ -119,38 +121,30 @@ public class JdkHttpUtils extends AbstractHttpUtils implements HttpUtils {
         String method = _method.toUpperCase();
         String newUrl = urlRebuild(method, _url, _charset);
 
-        // 创建 HttpClient
-        HttpClient client = getClient();
+        HttpURLConnection _client =  getClient(newUrl);
 
-        // 构建 HttpRequest
-        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
-                .uri(URI.create(newUrl))
-                .timeout(java.time.Duration.ofMillis(getTimeoutMillis()))
-                .method(method, buildRequestBody(method));
-
-        // 添加 headers
         if (_headers != null) {
             for (KeyValues<String> kv : _headers) {
                 for (String val : kv.getValues()) {
-                    requestBuilder.header(kv.getKey(), val);
+                    _client.addRequestProperty(kv.getKey(), val);
                 }
             }
         }
 
-        // 添加 cookies
         if (_cookies != null) {
-            requestBuilder.header("Cookie", getRequestCookieString(_cookies));
+            _client.setRequestProperty("Cookie", getRequestCookieString(_cookies));
         }
 
-        HttpRequest request = requestBuilder.build();
+        _client.setRequestMethod(method);
+        _client.setUseCaches(false);
+        _client.setDoInput(true);
 
         if (future == null) {
-            return request(client, request, method);
+            return request(_client, method);
         } else {
-            // 异步执行
             dispatcherLoader.getDispatcher().submit(() -> {
                 try {
-                    HttpResponse resp = request(client, request, method);
+                    HttpResponse resp = request(_client, method);
                     future.complete(resp);
                 } catch (IOException | RuntimeException e) {
                     future.completeExceptionally(e);
@@ -161,169 +155,200 @@ public class JdkHttpUtils extends AbstractHttpUtils implements HttpUtils {
         }
     }
 
-    protected HttpClient getClient() throws IOException {
-        HttpClient.Builder builder = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NORMAL);
-
-        if (_timeout != null) {
-            // 连接超时在请求级别设置，这里设置连接池等
-        }
-
+    protected HttpURLConnection getClient(String newUrl) throws IOException {
         if (_sslSupplier == null) {
             _sslSupplier = HttpSslSupplierDefault.getInstance();
         }
 
-        if (_proxy != null) {
-            builder.proxy(ProxySelector.of((InetSocketAddress) _proxy.address()));
+        HttpURLConnection _builder = openConnection(newUrl);
+
+        if (_builder instanceof HttpsURLConnection) {
+            //调整 ssl
+            HttpsURLConnection tmp = ((HttpsURLConnection) _builder);
+            tmp.setSSLSocketFactory(_sslSupplier.getSocketFactory());
+            tmp.setHostnameVerifier(_sslSupplier.getHostnameVerifier());
         }
 
-        // 设置 SSL 配置
-        if (_sslSupplier != null) {
-            builder.sslContext(_sslSupplier.getSslContext());
+        _builder.setInstanceFollowRedirects(true);
+
+        if (_timeout != null) {
+            //调整 timeout
+            if (_timeout.getConnectTimeout() != null) {
+                _builder.setConnectTimeout((int) _timeout.getConnectTimeout().toMillis());
+            }
+
+            if (_timeout.getReadTimeout() != null) {
+                _builder.setReadTimeout((int) _timeout.getReadTimeout().toMillis());
+            }
         }
 
-        return builder.build();
+        return _builder;
     }
 
-    private long getTimeoutMillis() {
-        if (_timeout != null && _timeout.getReadTimeout() != null) {
-            return _timeout.getReadTimeout().toMillis();
-        }
-        return 60000; // 默认60秒
-    }
-
-    private BodyPublisher buildRequestBody(String method) throws IOException {
-        if (METHODS_NOBODY.contains(method)) {
-            return BodyPublishers.noBody();
-        }
-
-        if (_bodyRaw != null) {
-            // 使用 bodyRaw
-            byte[] content = IoUtil.transferToBytes(_bodyRaw.getContent());
-            return BodyPublishers.ofByteArray(content);
-        } else if (_multipart) {
-            // 构建 multipart body
-            return buildMultipartBody();
-        } else if (Utils.isEmpty(_params) == false && "GET".equals(method) == false) {
-            // 构建 form body
-            return buildFormBody();
+    protected HttpURLConnection openConnection(String newUrl) throws IOException {
+        if (_proxy == null) {
+            return (HttpURLConnection) new URL(newUrl).openConnection();
         } else {
-            return BodyPublishers.noBody();
+            return (HttpURLConnection) new URL(newUrl).openConnection(_proxy);
         }
     }
 
-    private BodyPublisher buildFormBody() throws IOException {
-        if (_params == null || _params.isEmpty()) {
-            return BodyPublishers.noBody();
+    protected HttpResponse request(HttpURLConnection _builder, String method) throws IOException {
+        try {
+            if (METHODS_NOBODY.contains(method) == false) {
+                if (_bodyRaw != null) {
+                    if (_bodyRaw.getContentType() != null) {
+                        _builder.setRequestProperty("Content-Type", _bodyRaw.getContentType());
+                    }
+
+                    _builder.setDoOutput(true);
+
+                    try (OutputStream out = _builder.getOutputStream();
+                         InputStream ins = _bodyRaw.getContent()) {
+                        IoUtil.transferTo(ins, out);
+                    }
+                } else {
+                    if (_multipart) {
+                        _builder.setDoOutput(true);
+
+                        new FormDataBody(_charset).write(_builder, _files, _params);
+                    } else if (Utils.isEmpty(_params) == false) {
+                        _builder.setDoOutput(true);
+
+                        new FormBody(_charset).write(_builder, _params);
+                    } else {
+                        //HEAD 可以为空
+                    }
+                }
+            }
+
+            return getResponse(_builder, method);
+        } catch (IOException | RuntimeException e) {
+            _builder.disconnect();
+            throw e;
+        }
+    }
+
+    protected HttpResponse getResponse(HttpURLConnection _builder, String method) throws IOException {
+        int statusCode = _builder.getResponseCode();
+
+        if (isRedirected(statusCode)) {
+            String location = _builder.getHeaderField("Location");
+            if (Utils.isEmpty(location)) {
+                //如果没有，则异常
+                throw new IOException("Redirect location header unfound, original url: " + _url);
+            }
+
+            _url = getLocationUrl(_url, location);
+
+            return execDo(method, null);
+        } else {
+
+            return new JdkHttpResponse(this, statusCode, _builder);
+        }
+    }
+
+    public static class FormDataBody {
+        private static final String CRLF = "\r\n";
+        private static final String fileFormat = "Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"";
+        private static final String textFormat = "Content-Disposition: form-data; name=\"%s\"";
+
+        private final Charset charset;
+        private final String contentType;
+        private final String boundary;
+
+        public FormDataBody(Charset charset) {
+            this.boundary = Long.toHexString(System.currentTimeMillis());
+            this.contentType = "multipart/form-data; boundary=" + boundary;
+            this.charset = charset;
         }
 
-        StringBuilder builder = new StringBuilder();
-        for (KeyValues<String> kv : _params) {
-            for (Object val : kv.getValues()) {
-                if (builder.length() > 0) {
-                    builder.append("&");
+        void write(HttpURLConnection http, MultiMap<HttpUploadFile> fileMap, MultiMap<String> paramMap) throws IOException {
+            http.setRequestProperty("Content-Type", contentType);
+
+            try (OutputStream out = http.getOutputStream();
+                 PrintWriter writer = new PrintWriter(new OutputStreamWriter(out, charset), true)) {
+                if (fileMap != null) {
+                    for (KeyValues<HttpUploadFile> kv : fileMap) {
+                        for (HttpUploadFile val : kv.getValues()) {
+                            appendPartFile(out, writer, kv.getKey(), val);
+                        }
+                    }
                 }
-                try {
-                    builder.append(HttpUtils.urlEncode(kv.getKey(), _charset.name()));
-                    builder.append("=");
-                    builder.append(HttpUtils.urlEncode(String.valueOf(val), _charset.name()));
-                } catch (UnsupportedEncodingException e) {
-                    // This should never happen as charset names are validated
-                    throw new RuntimeException(e);
+
+                if (paramMap != null) {
+                    for (KeyValues<String> kv : paramMap) {
+                        for (String val : kv.getValues()) {
+                            appendPartText(out, writer, kv.getKey(), val);
+                        }
+                    }
                 }
+
+                writer.append("--").append(boundary).append("--").append(CRLF).flush();
             }
         }
 
-        String data = builder.toString();
-        return BodyPublishers.ofString(data);
-    }
+        private void appendPartFile(OutputStream out, PrintWriter writer, String key, HttpUploadFile value) throws IOException {
+            writer.append("--").append(boundary).append(CRLF);
+            writer.append(String.format(fileFormat, HttpUtils.urlEncode(key, charset.name()), value.fileName)).append(CRLF);
+            if (value.fileStream.getContentType() != null) {
+                writer.append("Content-Type: ").append(value.fileStream.getContentType()).append(CRLF);
+            }
+            writer.append("Content-Transfer-Encoding: binary").append(CRLF);
+            writer.append(CRLF).flush();
 
-    private BodyPublisher buildMultipartBody() throws IOException {
-        if (_files == null && (_params == null || _params.isEmpty())) {
-            return BodyPublishers.noBody();
+            try (InputStream ins = value.fileStream.getContent()) {
+                IoUtil.transferTo(ins, out);
+            }
+
+            writer.append(CRLF).flush();
         }
 
-        // 创建 boundary
-        String boundary = Long.toHexString(System.currentTimeMillis());
+        private void appendPartText(OutputStream out, PrintWriter writer, String key, String value) throws IOException {
+            writer.append("--").append(boundary).append(CRLF);
+            writer.append(String.format(textFormat, HttpUtils.urlEncode(key, charset.name()))).append(CRLF);
+            writer.append(CRLF).flush();
 
-        // 构建 multipart 内容
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        PrintWriter writer = new PrintWriter(new OutputStreamWriter(outputStream, _charset), true);
+            writer.append(value).flush();
 
-        if (_files != null) {
-            for (KeyValues<HttpUploadFile> kv : _files) {
-                for (HttpUploadFile val : kv.getValues()) {
-                    appendPartFile(writer, outputStream, kv.getKey(), val, boundary);
+            writer.append(CRLF).flush();
+        }
+    }
+
+    public static class FormBody {
+        private final String contentType;
+        private final Charset charset;
+
+        FormBody(Charset charset) {
+            this.charset = charset;
+            this.contentType = "application/x-www-form-urlencoded";
+            //this.contentType = "application/x-www-form-urlencoded; charset=" + this.charset.name();
+        }
+
+        void write(HttpURLConnection http, MultiMap<String> paramMap) throws IOException {
+            http.setRequestProperty("Content-Type", contentType);
+
+            try (OutputStream out = http.getOutputStream()) {
+                StringBuilder builder = new StringBuilder(128);
+                for (KeyValues<String> kv : paramMap) {
+                    // urlEncode : if charset is empty not do Encode
+                    for (Object val : kv.getValues()) {
+                        builder.append(HttpUtils.urlEncode(kv.getKey(), charset.name()));
+                        builder.append("=");
+                        builder.append(HttpUtils.urlEncode(String.valueOf(val), charset.name()));
+                        builder.append("&");
+                    }
                 }
+
+                String data = builder.delete(builder.length() - 1, builder.length()).toString();
+
+                out.write(data.getBytes(charset));
+                out.flush();
             }
         }
-
-        if (_params != null) {
-            for (KeyValues<String> kv : _params) {
-                for (String val : kv.getValues()) {
-                    appendPartText(writer, kv.getKey(), val, boundary);
-                }
-            }
-        }
-
-        writer.append("--").append(boundary).append("--").append("\r\n").flush();
-
-        byte[] content = outputStream.toByteArray();
-        return BodyPublishers.ofByteArray(content);
     }
 
-    private void appendPartFile(PrintWriter writer, ByteArrayOutputStream outputStream, String key, HttpUploadFile value, String boundary) throws IOException {
-        writer.append("--").append(boundary).append("\r\n");
-        try {
-            writer.append(String.format("Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"", 
-                    HttpUtils.urlEncode(key, _charset.name()), value.fileName));
-        } catch (UnsupportedEncodingException e) {
-            // This should never happen as charset names are validated
-            throw new RuntimeException(e);
-        }
-        writer.append("\r\n");
-        if (value.fileStream.getContentType() != null) {
-            writer.append("Content-Type: ").append(value.fileStream.getContentType()).append("\r\n");
-        }
-        writer.append("Content-Transfer-Encoding: binary").append("\r\n");
-        writer.append("\r\n").flush();
-
-        // 写入文件内容
-        try (InputStream ins = value.fileStream.getContent()) {
-            byte[] fileContent = IoUtil.transferToBytes(ins);
-            outputStream.write(fileContent);
-        }
-
-        writer.append("\r\n").flush();
-    }
-
-    private void appendPartText(PrintWriter writer, String key, String value, String boundary) throws IOException {
-        writer.append("--").append(boundary).append("\r\n");
-        try {
-            writer.append(String.format("Content-Disposition: form-data; name=\"%s\"", HttpUtils.urlEncode(key, _charset.name())));
-        } catch (UnsupportedEncodingException e) {
-            // This should never happen as charset names are validated
-            throw new RuntimeException(e);
-        }
-        writer.append("\r\n");
-        writer.append("\r\n").flush();
-
-        writer.append(value).flush();
-
-        writer.append("\r\n").flush();
-    }
-
-    protected HttpResponse request(HttpClient client, HttpRequest request, String method) throws IOException {
-        try {
-            java.net.http.HttpResponse<byte[]> response = client.send(request, BodyHandlers.ofByteArray());
-            return new JdkHttpResponse(this, response);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IOException("Request interrupted", e);
-        }
-    }
-
-    protected String urlRebuild(String method, String url, Charset charset) {
+    protected String urlRebuild(String method, String url, Charset charset) throws UnsupportedEncodingException {
         int pathOf = url.indexOf("://");
         int queryOf = url.indexOf("?");
 
@@ -332,35 +357,25 @@ public class JdkHttpUtils extends AbstractHttpUtils implements HttpUtils {
         String query = queryOf > 0 ? url.substring(queryOf) : "";
 
         if (hostAndPath.length() > 0) {
-            try {
-                String hostAndPath0 = URLDecoder.decode(hostAndPath, charset.name());
+            String hostAndPath0 = URLDecoder.decode(hostAndPath, charset.name());
 
-                if (hostAndPath.equals(hostAndPath0)) {
-                    hostAndPath = HttpUtils.urlEncode(hostAndPath, charset.name());
-                    hostAndPath = hostAndPath.replace("%2F", "/").replace("%3A", ":");
-                }
-            } catch (UnsupportedEncodingException e) {
-                // This should never happen as charset names are validated
-                throw new RuntimeException(e);
+            if (hostAndPath.equals(hostAndPath0)) {
+                hostAndPath = HttpUtils.urlEncode(hostAndPath, charset.name());
+                hostAndPath = hostAndPath.replace("%2F", "/").replace("%3A", ":");
             }
         }
 
         if (query.length() > 0) {
-            try {
-                String query0 = URLDecoder.decode(query, charset.name());
-                if (query.equals(query0)) {
-                    query = HttpUtils.urlEncode(query, charset.name());
-                    query = query.replace("%3F", "?")
-                            .replace("%2F", "/")
-                            .replace("%3A", ":")
-                            .replace("%3D", "=")
-                            .replace("%26", "&")
-                            .replace("%40", "@")
-                            .replace("%23", "#");
-                }
-            } catch (UnsupportedEncodingException e) {
-                // This should never happen as charset names are validated
-                throw new RuntimeException(e);
+            String query0 = URLDecoder.decode(query, charset.name());
+            if (query.equals(query0)) {
+                query = HttpUtils.urlEncode(query, charset.name());
+                query = query.replace("%3F", "?")
+                        .replace("%2F", "/")
+                        .replace("%3A", ":")
+                        .replace("%3D", "=")
+                        .replace("%26", "&")
+                        .replace("%40", "@")
+                        .replace("%23", "#");
             }
         }
 
@@ -371,13 +386,7 @@ public class JdkHttpUtils extends AbstractHttpUtils implements HttpUtils {
 
         if (_params != null && "GET".equals(method)) {
             for (KeyValues<String> kv : _params) {
-                String key;
-                try {
-                    key = HttpUtils.urlEncode(kv.getKey(), charset.name());
-                } catch (UnsupportedEncodingException e) {
-                    // This should never happen as charset names are validated
-                    throw new RuntimeException(e);
-                }
+                String key = HttpUtils.urlEncode(kv.getKey(), charset.name());
                 for (String val : kv.getValues()) {
                     if (val != null) {
                         if (newUrl.indexOf("?") < 0) {
@@ -385,12 +394,7 @@ public class JdkHttpUtils extends AbstractHttpUtils implements HttpUtils {
                         } else {
                             newUrl.append("&");
                         }
-                        try {
-                            newUrl.append(key).append("=").append(HttpUtils.urlEncode(val, charset.name()));
-                        } catch (UnsupportedEncodingException e) {
-                            // This should never happen as charset names are validated
-                            throw new RuntimeException(e);
-                        }
+                        newUrl.append(key).append("=").append(HttpUtils.urlEncode(val, charset.name()));
                     }
                 }
             }
@@ -398,5 +402,37 @@ public class JdkHttpUtils extends AbstractHttpUtils implements HttpUtils {
         }
 
         return newUrl.toString();
+    }
+
+    /**
+     * 允许 PATCH 方法
+     */
+    public static void allowPatch() {
+        allowMethods("PATCH");
+    }
+
+    /**
+     * 补丁，增加新方法支持
+     */
+    @SuppressWarnings("all")
+    public static void allowMethods(String... methods) {
+        try {
+            Field methodsField = HttpURLConnection.class.getDeclaredField("methods");
+
+            Field modifiersField = Field.class.getDeclaredField("modifiers");
+            ClassUtil.accessibleAsTrue(modifiersField);
+            modifiersField.setInt(methodsField, methodsField.getModifiers() & ~Modifier.FINAL);
+
+            ClassUtil.accessibleAsTrue(methodsField);
+
+            String[] oldMethods = (String[]) methodsField.get(null);
+            Set<String> methodsSet = new LinkedHashSet<>(Arrays.asList(oldMethods));
+            methodsSet.addAll(Arrays.asList(methods));
+            String[] newMethods = methodsSet.toArray(new String[0]);
+
+            methodsField.set(null/*static field*/, newMethods);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            // do non thing
+        }
     }
 }

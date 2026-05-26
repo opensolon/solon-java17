@@ -27,8 +27,10 @@
         </dependency>
 
         <dependency>
-            <groupId>org.noear</groupId>
-            <artifactId>solon-rx</artifactId>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+            <version>${reactor-core.version}</version>
+            <optional>true</optional>
         </dependency>
 
         <dependency>

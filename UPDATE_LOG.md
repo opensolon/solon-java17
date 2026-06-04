@@ -1,8 +1,8 @@
 
+### v4.0.0
 
-### v3.11.0
-
-* 新增 solon-cache-caffeine3
+* 新增 solon-cache-caffeine3（同步 solon-cache-caffeine 的代码）
+* 调整 `solon-cache-*` enableMd5key 默认为 false
 * undertow-jakarta 升为 2.3.24.Final
 * jetty.jakarta 升为 12.1.9
 * xxl-job-core 升为 3.4.0

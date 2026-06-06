@@ -2,12 +2,13 @@
 ### v4.0.0
 
 * 新增 solon-cache-caffeine3（同步 solon-cache-caffeine 的代码）
-* 调整 `solon-cache-*` enableMd5key 默认为 false
-* undertow-jakarta 升为 2.3.24.Final
-* jetty.jakarta 升为 12.1.9
-* xxl-job-core 升为 3.4.0
-* jackson3 升为 3.1.3
-* tomcat 升为 11.0.22
+* 优化 solon-web-servlet-jakarta MultipartUtil 字段处理 RunUtil.runAndTry(part::delete) 尝试删除
+* 调整 solon-cache-xxx enableMd5key 默认为 false
+* undertow (for java17) 升为 2.3.24.Final
+* jetty (for java17) 升为 12.1.9
+* xxl-job-core3 (for java17) 升为 3.4.0
+* jackson3 (for java17) 升为 3.1.3
+* tomcat (for java17) 升为 11.0.22
 
 ### v3.10.0
 

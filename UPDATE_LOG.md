@@ -1,4 +1,8 @@
 
+### v4.0.5
+
+* 添加 solon-net WebSocket:sendPing, sendPong 方法（及配套适配）
+
 ### v4.0.0
 
 * 新增 solon-cache-caffeine3（同步 solon-cache-caffeine 的代码）

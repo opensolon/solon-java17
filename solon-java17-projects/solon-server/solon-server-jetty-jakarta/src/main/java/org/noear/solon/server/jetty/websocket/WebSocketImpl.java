@@ -88,6 +88,20 @@ public class WebSocketImpl extends WebSocketBase {
     }
 
     @Override
+    public Future<Void> sendPing() {
+        Callback.Completable future = new Callback.Completable();
+        real.sendPing(ByteBuffer.allocate(0), future);
+        return future;
+    }
+
+    @Override
+    public Future<Void> sendPong() {
+        Callback.Completable future = new Callback.Completable();
+        real.sendPong(ByteBuffer.allocate(0), future);
+        return future;
+    }
+
+    @Override
     public void close() {
         super.close();
 

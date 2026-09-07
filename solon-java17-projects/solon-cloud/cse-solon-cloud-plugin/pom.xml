@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.noear</groupId>
+        <artifactId>solon-java17-parent</artifactId>
+        <version>4.1.0</version>
+        <relativePath>../../../solon-java17-parent/pom.xml</relativePath>
+    </parent>
+
+    <artifactId>cse-solon-cloud-plugin</artifactId>
+    <name>${project.artifactId}</name>
+    <packaging>jar</packaging>
+
+    <properties>
+        <java-chassis.version>2.8.31</java-chassis.version>
+        <jackson.version>2.21.4</jackson.version>
+        <slf4j.version>2.0.18</slf4j.version>
+    </properties>
+
+    <description>华为云 CSE (ServiceComb) 引擎 Solon Cloud 集成插件</description>
+
+    <dependencies>
+        <!-- Solon Cloud 接口 -->
+        <dependency>
+            <groupId>org.noear</groupId>
+            <artifactId>solon-cloud</artifactId>
+        </dependency>
+
+        <!-- ServiceComb Java Chassis SDK: 服务注册发现 -->
+        <dependency>
+            <groupId>org.apache.servicecomb</groupId>
+            <artifactId>registry-service-center</artifactId>
+            <version>${java-chassis.version}</version>
+        </dependency>
+
+        <!-- ServiceComb Java Chassis SDK: KIE 配置中心 -->
+        <dependency>
+            <groupId>org.apache.servicecomb</groupId>
+            <artifactId>config-kie</artifactId>
+            <version>${java-chassis.version}</version>
+        </dependency>
+
+        <!-- Jackson JSON -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <!-- 日志 API -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>${project.artifactId}</finalName>
+    </build>
+
+</project>

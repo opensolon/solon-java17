@@ -17,6 +17,8 @@
 
     <properties>
         <java-chassis.version>2.8.31</java-chassis.version>
+        <jackson.version>2.21.4</jackson.version>
+        <slf4j.version>2.0.18</slf4j.version>
     </properties>
 
     <description>华为云 CSE (ServiceComb) 引擎 Solon Cloud 集成插件</description>

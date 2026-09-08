@@ -28,7 +28,7 @@ import java.util.Map;
  * CSE 专属配置扩展
  * 继承 CloudProps，补充 CSE ServiceComb 引擎特有的配置项
  *
- * @author noear
+ * @author 王忠凯
  * @since 1.0
  */
 public class CseConfig extends CloudProps {

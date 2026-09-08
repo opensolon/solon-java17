@@ -52,7 +52,7 @@ import java.util.*;
  *
  * 同时提供 IAM Token 认证，自动获取和刷新 Token。
  *
- * @author noear
+ * @author 王忠凯
  * @since 1.2
  */
 public class CseSdkClient {

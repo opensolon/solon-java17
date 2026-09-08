@@ -45,7 +45,7 @@ import java.util.concurrent.*;
  * - push/remove 通过 HttpTransport 直接调用 KIE REST API
  * - 使用定时轮询方式订阅配置变更
  *
- * @author noear
+ * @author 王忠凯
  * @since 1.2
  */
 public class CloudConfigServiceCseImp implements CloudConfigService {

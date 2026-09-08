@@ -47,6 +47,6 @@
 
 
         <module>../../solon-java17-projects/solon-cloud/xxljob3-solon-cloud-plugin</module>
-        <module>../../solon-java17-projects/solon-cloud/cse-solon-cloud-plugin</module>
+        <module>../../solon-java17-projects/solon-cloud/cse3-solon-cloud-plugin</module>
     </modules>
 </project>

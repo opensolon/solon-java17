@@ -11,7 +11,7 @@
         <relativePath>../../../solon-java17-parent/pom.xml</relativePath>
     </parent>
 
-    <artifactId>cse-solon-cloud-plugin</artifactId>
+    <artifactId>cse3-solon-cloud-plugin</artifactId>
     <name>${project.artifactId}</name>
     <packaging>jar</packaging>
 

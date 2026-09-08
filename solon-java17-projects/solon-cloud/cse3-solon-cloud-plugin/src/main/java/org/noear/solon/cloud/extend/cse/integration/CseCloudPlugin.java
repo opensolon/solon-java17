@@ -60,7 +60,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *     load: "demoapp.yml"
  * </pre>
  *
- * @author noear
+ * @author 王忠凯
  * @since 1.2
  */
 public class CseCloudPlugin implements Plugin {

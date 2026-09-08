@@ -40,7 +40,7 @@ import java.util.concurrent.*;
  * - 使用定时任务上报心跳（heartbeat）保持实例存活
  * - 使用定时轮询方式订阅服务变化
  *
- * @author noear
+ * @author 王忠凯
  * @since 1.2
  */
 public class CloudDiscoveryServiceCseImp implements CloudDiscoveryService {

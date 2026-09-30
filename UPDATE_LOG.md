@@ -1,3 +1,6 @@
+### 4.1.1
+
+* 添加 sce-solon-cloud-plugin 华为云cse模块
 
 ### v4.0.5
 
